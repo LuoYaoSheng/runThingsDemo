@@ -169,6 +169,8 @@ func TestHub(t *testing.T) {
 	db = database
 
 	// 获取告警规则
+	//sql := `select id,name,level,code,sn,content from eq_alarm_rule`
+	//v, err := db.Exec(sql)
 
 	select {}
 }
