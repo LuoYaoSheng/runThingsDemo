@@ -120,6 +120,11 @@ func InsertMySQL(sn, productKey, title, content string, status int) {
 	}
 }
 
+func GetMySqlAndMQ() {
+	//sql := `select id,name,level,code,sn,content from eq_alarm_rule`
+	//v, err := db.Exec(sql)
+}
+
 func cmdMQ(content string) {
 	rabbitmqCmd.PublishSimple(content)
 }
@@ -168,9 +173,8 @@ func TestHub(t *testing.T) {
 	}
 	db = database
 
-	// 获取告警规则
-	//sql := `select id,name,level,code,sn,content from eq_alarm_rule`
-	//v, err := db.Exec(sql)
+	// 获取告警规则 并 下发
+	GetMySqlAndMQ()
 
 	select {}
 }
