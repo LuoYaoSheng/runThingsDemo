@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	model2 "run-things-demo/eq/model"
 
 	"github.com/LuoYaoSheng/runThingsConfig/config"
@@ -19,6 +20,12 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+)
+
+var (
+	rabbitmqCmd       *service.RabbitMQ
+	rabbitmqThreshold *service.RabbitMQ
+	db                *sqlx.DB
 )
 
 var MessagePubHandler mqtt.MessageHandler = func(mqttClient mqtt.Client, msg mqtt.Message) {
@@ -53,60 +60,6 @@ var MessagePubHandler mqtt.MessageHandler = func(mqttClient mqtt.Client, msg mqt
 		log.Panicln(err)
 		return
 	}
-
-	// 模拟更改阈值
-	if status == config.EqStatusAlarm {
-
-		m := map[string]float64{
-			"temperature": model2.TemperatureToplimit,
-			"humidity":    model2.HumidityToplimit,
-		}
-		value, err := service.GetRdValue(sn + "_m")
-		if err == nil {
-			// 获取值
-			err2 := json.Unmarshal([]byte(value), &m)
-			if err2 != nil {
-				log.Panicln(err2)
-			}
-		}
-
-		// 通过 告警时，自增 +1 进行修改
-		content := map[string]interface{}{
-			"temperature": m["temperature"] + 1,
-			"humidity":    m["humidity"] + 1,
-		}
-		//dataType, _ := json.Marshal(content)
-		//err = service.SetRdValue(sn+"_m", dataType)
-		//if err != nil {
-		//	logx.Error(err)
-		//	return
-		//}
-		// 直接修改Redis，修改成通过发送到 runTings 操作
-
-		threshold := model.Eq2MqThreshold{
-			Sn:      sn,
-			Content: content,
-		}
-		dataType, _ := json.Marshal(threshold)
-		thresholdMQ(string(dataType))
-	}
-
-	if status == config.EqStatusAlarm && msf["temperature"].(float64) > 50.0 {
-		// 模拟下发指令
-
-		cmdContent := map[string]interface{}{}
-		cmdContent["on"] = !msf["on"].(bool)
-
-		cmd := model.Eq2MqCmd{
-			Sn:      sn,
-			Content: cmdContent,
-		}
-
-		cmdData, _ := json.Marshal(cmd)
-
-		log.Println("---- 下发指令 ----", string(cmdData))
-		cmdMQ(string(cmdData))
-	}
 }
 
 func InsertMySQL(sn, productKey, title, content string, status int) {
@@ -116,29 +69,78 @@ func InsertMySQL(sn, productKey, title, content string, status int) {
 	//执行SQL语句
 	_, err := db.Exec(sql, value[0], value[1], value[2], value[3], value[4], value[5])
 	if err != nil {
-		log.Panicln("exec failed,", err)
+		log.Println("exec failed,", err)
 	}
 }
 
 func GetMySqlAndMQ() {
-	//sql := `select id,name,level,code,sn,content from eq_alarm_rule`
-	//v, err := db.Exec(sql)
+
+	var rules []model.Rule
+
+	sql := `select id,name,level,code,sn,content from eq_alarm_rule`
+	err := db.Select(&rules, sql)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	//log.Println(rules)
+
+	// 发送rabbitmq 存储到 Redis 中
+	for _, rule := range rules {
+		threshold := model.Eq2MqThreshold{
+			Operate: 0,
+			Content: rule,
+		}
+		thresholdMQ(threshold)
+	}
 }
 
-func cmdMQ(content string) {
-	rabbitmqCmd.PublishSimple(content)
-}
-func thresholdMQ(content string) {
-	rabbitmqThreshold.PublishSimple(content)
+func cmdMQ(cmd model.Eq2MqCmd) {
+	data, _ := json.Marshal(cmd)
+	log.Println("---- 下发指令 ----", string(data))
+	rabbitmqCmd.PublishSimple(string(data))
 }
 
-var (
-	rabbitmqCmd       *service.RabbitMQ
-	rabbitmqThreshold *service.RabbitMQ
-	db                *sqlx.DB
-)
+func thresholdMQ(threshold model.Eq2MqThreshold) {
+	data, _ := json.Marshal(threshold)
+	//log.Println("---- 设置告警规则 ----", string(data))
+	rabbitmqThreshold.PublishSimple(string(data))
+}
+
+type server int
+
+func (h *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	//log.Println(r.URL.Path)
+
+	onValue := r.URL.Query().Get("on")
+	snValue := r.URL.Query().Get("sn")
+
+	if len(snValue) <= 0 {
+		log.Println("sn 未设置")
+		return
+	}
+
+	on := true
+	if onValue == `0` || onValue == `false` || len(onValue) == 0 {
+		on = false
+	}
+
+	cmdContent := map[string]interface{}{}
+	cmdContent["on"] = on
+
+	cmd := model.Eq2MqCmd{
+		Sn:      snValue,
+		Content: cmdContent,
+	}
+
+	cmdMQ(cmd)
+
+	w.Write([]byte("指令已下发"))
+}
 
 func TestHub(t *testing.T) {
+
+	log.SetFlags(log.Llongfile)
 
 	// 订阅 MQTT ，获取设备异常情况
 	topic := "event/runTings/" + model2.ProductKey + "/#"
@@ -173,8 +175,15 @@ func TestHub(t *testing.T) {
 	}
 	db = database
 
-	// 获取告警规则 并 下发
+	// 获取告警规则
 	GetMySqlAndMQ()
 
-	select {}
+	// 开启http
+	var s server
+	err = http.ListenAndServe(":9999", &s)
+	if err != nil {
+		log.Panicln("open http failed,", err)
+		return
+	}
+
 }

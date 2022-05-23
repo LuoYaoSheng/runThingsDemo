@@ -2,7 +2,7 @@ package mysql
 
 import (
 	"fmt"
-	"github.com/LuoYaoSheng/runThingsConfig/config"
+	"github.com/LuoYaoSheng/runThingsConfig/model"
 	"github.com/jmoiron/sqlx"
 	"log"
 	"testing"
@@ -24,7 +24,7 @@ func TestMySQL(t *testing.T) {
 		log.Panicln(err)
 	}
 
-	rule := config.Rule{}
+	rule := model.Rule{}
 
 	for rows.Next() {
 		err = rows.StructScan(&rule)
@@ -43,7 +43,7 @@ func TestMySQLSelect(t *testing.T) {
 
 	}
 
-	var rules []config.Rule
+	var rules []model.Rule
 
 	sql := `select id,name,level,code,sn,content from eq_alarm_rule`
 	err = db.Select(&rules, sql)

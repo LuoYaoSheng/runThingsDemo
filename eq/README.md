@@ -25,6 +25,7 @@
 1、启动 业务服务中心 hub_test.go
 2、启动 产品解析 rpc_test.go / api_test.go
 3、启动 设备模拟 simulation_test.go
+4、调用api请求下发开关指令 http://127.0.0.1:9999/cmd?on=0&sn=tc_0001
 ```
 
 #### 设备topic

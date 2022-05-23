@@ -3,10 +3,9 @@ package redis
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/LuoYaoSheng/runThingsConfig/config"
-	"github.com/LuoYaoSheng/runThingsServer/core"
+	service "github.com/LuoYaoSheng/runThingsServer/core"
+	"github.com/LuoYaoSheng/runThingsServer/extend"
 	"log"
-
 	"testing"
 	"time"
 
@@ -44,27 +43,30 @@ func TestRedisThreshold(t *testing.T) {
 	// 初始化 redis 客户端
 	service.GetRedisClient("127.0.0.1:6379", "123456", 0)
 
-	content := map[string]interface{}{
-		"txt":     "string",
-		"int":     1,
-		"float64": 1.2,
+	content := model.Rule{
+		Id:      1,
+		Name:    "测试",
+		Level:   0,
+		Code:    "",
+		Sn:      "QQ_1034639560",
+		Content: "[]",
 	}
 
 	threshold := model.Eq2MqThreshold{
-		Sn:      "1111",
+		Operate: 0,
 		Content: content,
 	}
 
 	dataType, _ := json.Marshal(threshold.Content)
 
-	err := service.SetRdValue(threshold.Sn, string(dataType))
+	err := service.SetRdValue(content.Sn, string(dataType))
 	if err != nil {
 		log.Panic(err)
 		return
 	}
 }
 
-var rules = []config.Rule{
+var rules = []model.Rule{
 	{
 		Id:      1,
 		Name:    "温度过高",
@@ -106,7 +108,7 @@ func TestRedisAdd(t *testing.T) {
 		key = key + "_rule"
 		value, _ := service.GetRdValue(key)
 		if len(value) == 0 {
-			saveValue := []config.Rule{rules[i]}
+			saveValue := []model.Rule{rules[i]}
 			dataType, _ := json.Marshal(saveValue)
 			err := service.SetRdValue(key, string(dataType))
 			if err != nil {
@@ -114,7 +116,7 @@ func TestRedisAdd(t *testing.T) {
 				return
 			}
 		} else {
-			var saveValue []config.Rule
+			var saveValue []model.Rule
 			err := json.Unmarshal([]byte(value), &saveValue)
 			if err != nil {
 				log.Println(err)
@@ -158,7 +160,7 @@ func TestRedisDel(t *testing.T) {
 	key = key + "_rule"
 	value, _ := service.GetRdValue(key)
 
-	var saveValue []config.Rule
+	var saveValue []model.Rule
 
 	err := json.Unmarshal([]byte(value), &saveValue)
 	if err != nil {
@@ -194,79 +196,6 @@ func TestRedisRun(t *testing.T) {
 	sn := rules[2].Sn
 	code := rules[0].Code
 
-	var key string
-	// 获取 sn 对应规则
-	key = sn + "_rule"
-	snValue, _ := service.GetRdValue(key)
-	var snRules []config.Rule
-	if len(snValue) > 0 {
-		err := json.Unmarshal([]byte(snValue), &snRules)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
-	//log.Println(snRules)
-
-	// 获取 code 对应规则
-	key = code + "_rule"
-	codeValue, _ := service.GetRdValue(key)
-	var codeRules []config.Rule
-	if len(codeValue) > 0 {
-		err := json.Unmarshal([]byte(codeValue), &codeRules)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
-	//log.Println(codeRules)
-
-	rules_ := append(snRules, codeRules...) // 一定要 snRules在前，重复时好保留
-	log.Println(rules_)
-	objRules := RemoveRepByLoop(rules_)
-	log.Println(objRules)
-}
-
-// 通过两重循环过滤重复元素
-func RemoveRepByLoop(slc []config.Rule) []config.Rule {
-	result := []config.Rule{} // 存放结果
-	for i := range slc {
-		flag := true
-		for j := range result {
-
-			log.Println(slc[i].Content)
-			slcMap := []config.RuleContent{}
-			err := json.Unmarshal([]byte(slc[i].Content), &slcMap)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-
-			resMap := []config.RuleContent{}
-			err = json.Unmarshal([]byte(result[j].Content), &resMap)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-
-			if len(slcMap) == len(resMap) {
-				flag2 := true
-				for k := 0; k < len(slcMap); k++ {
-					if !(slcMap[k].Property == resMap[k].Property && slcMap[k].Condition == resMap[k].Condition) {
-						flag2 = false
-						break
-					}
-				}
-				if flag2 == true {
-					flag = false // 存在重复元素，标识为false
-					break
-				}
-			}
-
-		}
-		if flag { // 标识为false，不添加进结果
-			result = append(result, slc[i])
-		}
-	}
-	return result
+	objLists := extend.RuleFromRedis(sn, code)
+	log.Println(objLists)
 }

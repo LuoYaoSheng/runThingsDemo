@@ -3,8 +3,8 @@ module run-things-demo
 go 1.17
 
 require (
-	github.com/LuoYaoSheng/runThingsConfig v0.0.0-20220523011723-37ec0bb12ddc
-	github.com/LuoYaoSheng/runThingsServer v0.0.0-20220521081809-94b9a965bb69
+	github.com/LuoYaoSheng/runThingsConfig v0.0.0-20220523020710-988cfa849717
+	github.com/LuoYaoSheng/runThingsServer v0.0.0-20220523033616-96fb4cdb325a
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/jmoiron/sqlx v1.3.5

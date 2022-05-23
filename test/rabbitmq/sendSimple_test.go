@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func TestSendSimple(t *testing.T) {
 		"content": "一个小型IoT管理中间件",
 	}
 
-	log := model.Eq2MqLog{
+	mqLog := model.Eq2MqLog{
 		Sn:       "1034639560",
 		Product:  "p001",
 		Protocol: 0,
@@ -32,8 +33,8 @@ func TestSendSimple(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		log.Status = int64(i)
-		dataType, _ := json.Marshal(log)
+		mqLog.Status = int64(i)
+		dataType, _ := json.Marshal(mqLog)
 		// 发送 log
 		//msg := `{"sn":"1034639560","product":"p001","protocol":0,"status":` + strconv.Itoa(i) + `,"content":{"name":"runThings","value":1231},"title":"万物互联从此开始","link":false}`
 		msg := string(dataType)
@@ -65,4 +66,28 @@ func TestSendSimple2(t *testing.T) {
 		fmt.Println("发送心跳", msg)
 		time.Sleep(time.Duration(heartbeat) * time.Second)
 	}
+}
+
+func TestThreshold(t *testing.T) {
+	rabbitmq := service.NewRabbitMQSimple("runThings-threshold", "amqp://admin:admin@127.0.0.1:5672/")
+
+	rule := model.Rule{
+		Id:      1,
+		Name:    "温度过高",
+		Level:   1,
+		Code:    "p_001",
+		Sn:      "",
+		Content: `[{"property":"temperature","condition":0,"value":70}]`,
+	}
+
+	mqLog := model.Eq2MqThreshold{
+		Operate: 0,
+		Content: rule,
+	}
+
+	dataType, _ := json.Marshal(mqLog)
+	msg := string(dataType)
+
+	log.Print(msg)
+	rabbitmq.PublishSimple(msg)
 }
