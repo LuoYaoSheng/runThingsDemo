@@ -3,6 +3,7 @@ package redis
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/LuoYaoSheng/runThingsConfig/config"
 	"github.com/LuoYaoSheng/runThingsServer/core"
 	"log"
 
@@ -63,16 +64,7 @@ func TestRedisThreshold(t *testing.T) {
 	}
 }
 
-type Rule struct {
-	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Level   int    `json:"level"`
-	Code    string `json:"code"`
-	Sn      string `json:"sn"`
-	Content string `json:"content"`
-}
-
-var rules = []Rule{
+var rules = []config.Rule{
 	{
 		Id:      1,
 		Name:    "温度过高",
@@ -114,7 +106,7 @@ func TestRedisAdd(t *testing.T) {
 		key = key + "_rule"
 		value, _ := service.GetRdValue(key)
 		if len(value) == 0 {
-			saveValue := []Rule{rules[i]}
+			saveValue := []config.Rule{rules[i]}
 			dataType, _ := json.Marshal(saveValue)
 			err := service.SetRdValue(key, string(dataType))
 			if err != nil {
@@ -122,7 +114,7 @@ func TestRedisAdd(t *testing.T) {
 				return
 			}
 		} else {
-			var saveValue []Rule
+			var saveValue []config.Rule
 			err := json.Unmarshal([]byte(value), &saveValue)
 			if err != nil {
 				log.Println(err)
@@ -166,7 +158,7 @@ func TestRedisDel(t *testing.T) {
 	key = key + "_rule"
 	value, _ := service.GetRdValue(key)
 
-	var saveValue []Rule
+	var saveValue []config.Rule
 
 	err := json.Unmarshal([]byte(value), &saveValue)
 	if err != nil {
@@ -206,7 +198,7 @@ func TestRedisRun(t *testing.T) {
 	// 获取 sn 对应规则
 	key = sn + "_rule"
 	snValue, _ := service.GetRdValue(key)
-	var snRules []Rule
+	var snRules []config.Rule
 	if len(snValue) > 0 {
 		err := json.Unmarshal([]byte(snValue), &snRules)
 		if err != nil {
@@ -219,7 +211,7 @@ func TestRedisRun(t *testing.T) {
 	// 获取 code 对应规则
 	key = code + "_rule"
 	codeValue, _ := service.GetRdValue(key)
-	var codeRules []Rule
+	var codeRules []config.Rule
 	if len(codeValue) > 0 {
 		err := json.Unmarshal([]byte(codeValue), &codeRules)
 		if err != nil {
@@ -235,28 +227,22 @@ func TestRedisRun(t *testing.T) {
 	log.Println(objRules)
 }
 
-type RuleContent struct {
-	Property  string      `json:"property"`
-	Condition int         `json:"condition"`
-	Value     interface{} `json:"value"`
-}
-
 // 通过两重循环过滤重复元素
-func RemoveRepByLoop(slc []Rule) []Rule {
-	result := []Rule{} // 存放结果
+func RemoveRepByLoop(slc []config.Rule) []config.Rule {
+	result := []config.Rule{} // 存放结果
 	for i := range slc {
 		flag := true
 		for j := range result {
 
 			log.Println(slc[i].Content)
-			slcMap := []RuleContent{}
+			slcMap := []config.RuleContent{}
 			err := json.Unmarshal([]byte(slc[i].Content), &slcMap)
 			if err != nil {
 				log.Println(err)
 				break
 			}
 
-			resMap := []RuleContent{}
+			resMap := []config.RuleContent{}
 			err = json.Unmarshal([]byte(result[j].Content), &resMap)
 			if err != nil {
 				log.Println(err)

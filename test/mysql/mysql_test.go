@@ -2,21 +2,13 @@ package mysql
 
 import (
 	"fmt"
+	"github.com/LuoYaoSheng/runThingsConfig/config"
 	"github.com/jmoiron/sqlx"
 	"log"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
 )
-
-type Rule struct {
-	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Level   int    `json:"level"`
-	Code    string `json:"code"`
-	Sn      string `json:"sn"`
-	Content string `json:"content"`
-}
 
 func TestMySQL(t *testing.T) {
 
@@ -32,7 +24,7 @@ func TestMySQL(t *testing.T) {
 		log.Panicln(err)
 	}
 
-	rule := Rule{}
+	rule := config.Rule{}
 
 	for rows.Next() {
 		err = rows.StructScan(&rule)
@@ -51,7 +43,7 @@ func TestMySQLSelect(t *testing.T) {
 
 	}
 
-	var rules []Rule
+	var rules []config.Rule
 
 	sql := `select id,name,level,code,sn,content from eq_alarm_rule`
 	err = db.Select(&rules, sql)
